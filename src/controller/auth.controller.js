@@ -1,5 +1,6 @@
 import User from '../models/User.js';
 import jwt from 'jsonwebtoken';
+import { upsertStreamUser } from '../lib/stream.js';
 
 const signup = async (req, res) => {
   const { fullName, password, email } = req.body;
@@ -51,6 +52,21 @@ const signup = async (req, res) => {
     });
 
     // create user in StreamChat
+    try {
+      await upsertStreamUser({
+        id: newUser._id.toString(),
+        name: newUser.fullName,
+        image: newUser.profilePicture || '',
+      });
+      console.log(`Stream user created successfully for ${newUser.fullName}`);
+    } catch (error) {
+      console.error(
+        'Error creating Stream user:',
+        error?.response?.data?.message || error.message
+      );
+      res.status(500).json({ message: 'Failed to create Stream user' });
+      return;
+    }
 
     //STEP:2   jwt token generation and saving user
     const token = jwt.sign(
