@@ -155,4 +155,73 @@ const logout = (req, res) => {
   }
 };
 
-export { signup, login, logout };
+const onboard = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    // if (req.user._id) console.log('yus');
+    // Get user ID from the request object
+    const { fullName, bio, nativeLanguage, learningLanguage, location } =
+      req.body;
+
+    if (
+      !fullName ||
+      !bio ||
+      !nativeLanguage ||
+      !learningLanguage ||
+      !location
+    ) {
+      return res.status(400).json({
+        message: 'All fields are required',
+        // Provide a list of missing fields, returns an array of field names and true if the field is missing and false if the field is present
+        missingFields: [
+          !fullName && 'fullName',
+          !bio && 'bio',
+          !nativeLanguage && 'nativeLanguage',
+          !learningLanguage && 'learningLanguage',
+          !location && 'location',
+        ].filter(Boolean),
+      });
+    }
+    // update user profile
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      {
+        ...req.body,
+        isOnBoarded: true,
+      },
+      { new: true }
+    );
+
+    // console.log('Updated user:', updatedUser);
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    //  Create Stream user with updated information
+    try {
+      await upsertStreamUser({
+        id: updatedUser._id.toString(),
+        name: updatedUser.fullName,
+        image: updatedUser.profilePicture || '',
+      });
+      console.log(
+        `Stream user updated successfully for ${updatedUser.fullName}`
+      );
+    } catch (error) {
+      console.error(
+        'Error updating Stream user:',
+        error?.response?.data?.message || error.message
+      );
+      return res.status(500).json({ message: 'Failed to update Stream user' });
+    }
+
+    res.status(200).json({ success: true, user: updatedUser });
+  } catch (error) {
+    console.error(
+      'Error during onboarding:',
+      error?.response?.data?.message || error.message
+    );
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+export { signup, login, logout, onboard };
